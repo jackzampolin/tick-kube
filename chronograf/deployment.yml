@@ -1,0 +1,25 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: chronograf
+  namespace: tick
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: chronograf
+    spec:
+      containers:
+      - image: gcr.io/jackzampolin-web/chronograf
+        imagePullPolicy: Always
+        name: chronograf
+        ports:
+        - containerPort: 8888
+        resources:
+          limits:
+            cpu: 1
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 10Mi

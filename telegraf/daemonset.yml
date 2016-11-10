@@ -1,0 +1,58 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: telegraf
+  namespace: tick
+spec:
+  template:
+    metadata:
+      labels:
+        app: telegraf
+    spec:
+      containers:
+        - name: telegraf
+          image: telegraf:1.1.0-rc1-alpine
+          imagePullPolicy: Always
+          env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: NODE_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: "HOST_PROC"
+            value: "/rootfs/proc"
+          - name: "HOST_SYS"
+            value: "/rootfs/sys"
+          volumeMounts:
+          # - mountPath: /var/run/docker.sock
+          #   name: docker-socket
+          - name: sysro
+            mountPath: /rootfs/sys
+            readOnly: true
+          - name: procro
+            mountPath: /rootfs/proc
+            readOnly: true
+          - name: varrunutmpro
+            mountPath: /var/run/utmp
+            readOnly: true
+          - name: config-volume
+            mountPath: /etc/telegraf
+      volumes:
+      # - name: docker-socket
+      #   hostPath:
+      #     path: /var/run/docker.sock
+      - name: sysro
+        hostPath:
+          path: /sys
+      - name: procro
+        hostPath:
+          path: /proc
+      - name: varrunutmpro
+        hostPath:
+          path: /var/run/utmp
+      - name: config-volume
+        configMap:
+          name: telegraf-config

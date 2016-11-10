@@ -1,0 +1,35 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: kapacitor
+  namespace: tick
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: kapacitor
+    spec:
+      containers:
+      - image: kapacitor:1.1.0-rc1-alpine
+        imagePullPolicy: Always
+        name: kapacitor
+        env:
+        - name: KAPACITOR_HOSTNAME
+          value: kapacitor.tick
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/kapacitor
+        ports:
+        - containerPort: 9092
+        resources:
+          limits:
+            cpu: 1
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 10Mi
+      volumes:
+      - name: config-volume
+        configMap:
+          name: kapacitor-config
