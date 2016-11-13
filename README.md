@@ -23,7 +23,7 @@ $ go get -v github.com/jackzampolin/tick-kube
 $ git clone git@github.com:jackzampolin/tick-kube.git
 ```
 
-Personalize the variables in `/tick`:
+Personalize the variables in `/tick-kube`:
 
 ```bash
 # Defaults to go get download. Modify to be root of repo if using git clone
