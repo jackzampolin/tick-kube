@@ -60,19 +60,145 @@ OTHER_DISK=10GB
 
 ### To Deploy:
 
-This repo is designed to be deployed on Google Container engine. There is some specific scripting for that environment here. You need:
-- `gcloud` binary installed and configured for the Google Compute Cloud `project` 
-- `kubectl` binary installed and configured for the kubernetes `cluster` you wish to use
+This tool offers a couple of different options:
 
-You can check this configuration by running `./tick config` from the root of this directory:
+- Create a new cluster and spin up the full stack
+- Create the full stack on an existing kubernetes cluster
+
+##### Create a new cluster
+
+To create a new cluster running the full stack and return the IP where chronograf is running:
 
 ```bash
-$ tick config
-CURRENT CONFIG:
-  project -> { project_id }
-  zone    -> { gce_zone } 
-  region  -> { gce_region } 
-  cluster -> { gke_cluster_context }
+$ ./tick-kube spin-up
 ```
 
-gcloud auth application-default login
+This command is a shortcut that runs following commands in order:
+
+```bash
+# First set configuration for gcloud and kubectl to the settings in ./tick-kube
+$ ./tick-kube config-set
+# Next create a new kubernetes cluster with those configuration parameters
+$ ./tick-kube create-cluster
+# Create disks for influxdb, chronograf, and kapacitor
+$ ./tick-kube create-disks
+# Build the chronograf docker container from source and push it to the Google Container Registry for your project
+# This script expects chronograf to be located at $GOPATH/src/github.com/influxdata/chronograf
+$ ./tick-kube build-chronograf
+# Create tick runs `kubectl apply -f $filename` on all manifests and creates associated configmaps
+$ ./tick-kube create-tick
+```
+
+This command takes a few minutes. It will hang at the end waiting for a public IP for the `chronograf` service:
+
+```bash
+Creating tick...
+tick is the full stack of InfluxData products running in production configuration
+namespace "tick" created
+configmap "telegraf-config" created
+configmap "influxdb-config" created
+deployment "influxdb" created
+service "influxdb" created
+deployment "kapacitor" created
+service "kapacitor" created
+daemonset "telegraf" created
+deployment "chronograf" created
+service "chronograf" created
+Waiting for public IP...
+NAME         CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+chronograf   10.7.249.214   <pending>     80/TCP    1s
+```
+
+Once the `EXTERNAL-IP` is visible visit it in your web browser. The URLs for configuring Influx and Kapacitor from Chronograf are as follows:
+
+```
+InfluxDB: http://influxdb.tick:8086
+Kapacitor: http://kapacitor.tick:8086
+```
+
+##### Create the stack on an existing cluster
+
+Creating the stack on an existing cluster is easy as well. After setting the variables at the top of `/tick-kube` Run the following commands:
+
+```bash
+# First set configuration for gcloud and kubectl to the settings in ./tick-kube
+$ ./tick-kube config-set
+# Create disks for influxdb, chronograf, and kapacitor
+$ ./tick-kube create-disks
+# Build the chronograf docker container from source and push it to the Google Container Registry for your project
+# This script expects chronograf to be located at $GOPATH/src/github.com/influxdata/chronograf
+$ ./tick-kube build-chronograf
+# Create tick runs `kubectl apply -f $filename` on all manifests and creates associated configmaps
+$ ./tick-kube create-tick
+```
+
+This command takes a few minutes. It will hang at the end waiting for a public IP for the `chronograf` service:
+
+```bash
+Creating tick...
+tick is the full stack of InfluxData products running in production configuration
+namespace "tick" created
+configmap "telegraf-config" created
+configmap "influxdb-config" created
+deployment "influxdb" created
+service "influxdb" created
+deployment "kapacitor" created
+service "kapacitor" created
+daemonset "telegraf" created
+deployment "chronograf" created
+service "chronograf" created
+Waiting for public IP...
+NAME         CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+chronograf   10.7.249.214   <pending>     80/TCP    1s
+```
+
+Once the `EXTERNAL-IP` is visible visit it in your web browser. The URLs for configuring Influx and Kapacitor from Chronograf are as follows:
+
+```
+InfluxDB: http://influxdb.tick:8086
+Kapacitor: http://kapacitor.tick:8086
+```
+
+### Tearing Down
+
+You can tear down either the full cluster or just the Kubernetes objects and persistent disks.
+
+##### Full cluster teardown
+
+To destroy all resources created by this demo run:
+
+```bash
+$ ./tick-kube spin-down
+```
+
+This command takes a few minutes and will require user input at 2 different places. This command is a shortcut that runs following commands in order:
+
+```bash
+# This deletes the tick namespace and removes tick from kubernetes
+$ ./tick-kube delete-tick
+# This deletes the cluster on google compute cloud and associated LBs
+$ ./tick-kube delete-cluster
+# This deletes the persistent disks created for InfluxDB, Kapacitor and Chronograf
+$ ./tick-kube delete-disk
+```
+
+##### Namespace only teardown
+
+To destroy the namespace and the associated persistent disks run the following:
+
+```bash
+# This deletes the tick namespace and removes tick from kubernetes
+$ ./tick-kube delete-tick
+# This deletes the persistent disks created for InfluxDB, Kapacitor and Chronograf
+$ ./tick-kube delete-disk
+```
+
+> NOTE: `./tick-kube delete-disk` may initially fail. This is because the disks are still mounted to the hosts. Wait a couple of minutes for them to get removed or go into the Google Cloud Console and delete them manually.
+
+### Troubleshooting
+
+If you are getting authentication errors when trying to connect to the cluster try running:
+
+```bash
+$ gcloud auth application-default login
+```
