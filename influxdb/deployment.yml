@@ -11,7 +11,7 @@ spec:
         app: influxdb
     spec:
       containers:
-      - image: influxdb:1.1.0-rc1-alpine
+      - image: influxdb:1.1.0-rc2-alpine
         imagePullPolicy: Always
         name: influxdb
         ports:
@@ -19,10 +19,12 @@ spec:
         volumeMounts:
         - name: config-volume
           mountPath: /etc/influxdb
+        - name: influxdb
+          mountPath: /var/lib/influxdb
         resources:
           limits:
             cpu: 1
-            memory: 100Mi
+            memory: 1Gi
           requests:
             cpu: 100m
             memory: 10Mi
@@ -30,3 +32,7 @@ spec:
       - name: config-volume
         configMap:
           name: influxdb-config
+      - name: influxdb
+        gcePersistentDisk:
+          pdName: influxdb
+          fsType: ext4

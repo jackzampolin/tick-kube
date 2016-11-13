@@ -11,7 +11,7 @@ spec:
         app: chronograf
     spec:
       containers:
-      - image: gcr.io/jackzampolin-web/chronograf
+      - image: gcr.io/influx-perf-testing/chronograf:latest
         imagePullPolicy: Always
         name: chronograf
         ports:
@@ -23,3 +23,12 @@ spec:
           requests:
             cpu: 100m
             memory: 10Mi
+        volumeMounts:
+        - name: chronograf
+          mountPath: /var/lib/chronograf
+      volumes:
+      - name: chronograf
+        gcePersistentDisk:
+          pdName: chronograf
+          fsType: ext4
+        

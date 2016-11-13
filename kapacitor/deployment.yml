@@ -11,15 +11,14 @@ spec:
         app: kapacitor
     spec:
       containers:
-      - image: kapacitor:1.1.0-rc1-alpine
+      - image: kapacitor:1.1.0-alpine
         imagePullPolicy: Always
         name: kapacitor
         env:
         - name: KAPACITOR_HOSTNAME
           value: kapacitor.tick
-        volumeMounts:
-        - name: config-volume
-          mountPath: /etc/kapacitor
+        - name: KAPACITOR_INFLUXDB_0_URLS_0
+          value: http://influxdb.tick:8086
         ports:
         - containerPort: 9092
         resources:
@@ -29,7 +28,11 @@ spec:
           requests:
             cpu: 100m
             memory: 10Mi
+        volumeMounts:
+        - name: kapacitor
+          mountPath: /var/lib/kapacitor
       volumes:
-      - name: config-volume
-        configMap:
-          name: kapacitor-config
+      - name: kapacitor
+        gcePersistentDisk:
+          pdName: kapacitor
+          fsType: ext4

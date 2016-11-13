@@ -1,0 +1,255 @@
+#!/bin/bash
+
+BP=$GOPATH/src/github.com/jackzampolin/tick-kube
+
+# Name of cluster 
+CLUSTER=influx-test-cluster
+
+# Name of gcloud project
+PROJECT=influx-perf-testing
+
+# gcloud region
+REGION=us-west1
+
+# gcloud zone
+ZONE=us-west1-b
+
+# num GB of disk for nodes 
+DISK=100
+
+# gcloud instance types
+MACHINE=n1-standard-1
+
+# Number of nodes for kubernetes cluster
+NUM_NODES=3
+
+# InfluxDB Disk Size
+INFLUX_DISK=25GB
+
+# Chronograf and Kapacitor Disk Sizes
+OTHER_DISK=10GB
+
+
+
+kube () {
+  kubectl apply -f $1
+}
+
+create-tick () {
+  echo "Creating tick..."
+  echo "tick is the full stack of InfluxData products running in production configuration"
+  kube $BP/namespace.yml
+  kubectl create configmap --namespace tick telegraf-config --from-file $BP/telegraf/telegraf.conf
+  kubectl create configmap --namespace tick influxdb-config --from-file $BP/influxdb/influxdb.conf
+  kube $BP/influxdb/deployment.yml
+  kube $BP/influxdb/service.yml
+  kube $BP/kapacitor/deployment.yml
+  kube $BP/kapacitor/service.yml
+  kube $BP/telegraf/daemonset.yml
+  kube $BP/chronograf/deployment.yml
+  kube $BP/chronograf/service.yml
+  echo "Waiting for public IP..."
+  kubectl get svc --namespace tick chronograf -w
+}
+
+create-disks () {
+  echo "Creating persistent disks for the tick stack..."
+  echo "InfluxDB Disk: $INFLUX_DISK"
+  echo "Kapacitor Disk: $OTHER_DISK"
+  echo "chronograf Disk: $OTHER_DISK"
+  gcloud compute disks create chronograf kapacitor --size=$OTHER_DISK
+  gcloud compute disks create influxdb --size=$INFLUX_DISK
+}
+
+delete-disks () {
+  echo "Deleting disks for tick..."
+  gcloud compute disks delete chronograf kapacitor influxdb
+}
+
+delete-tick () {
+  kubectl delete ns tick
+}
+
+config-list () {
+  project=$(gcloud config list project --format="value(core.project)" 2> /dev/null)
+  zone=$(gcloud config list compute/zone --format="value(compute.zone)" 2> /dev/null)
+  region=$(gcloud config list compute/region --format="value(compute.region)" 2> /dev/null)
+  cluster=$(kubectl config current-context)
+  cat <<-HERE
+CURRENT CONFIG:
+  project -> $project 
+  zone    -> $zone 
+  region  -> $region 
+  cluster -> $cluster 
+HERE
+}
+
+create-cluster () {
+  echo "Creating a $NUM_NODES node cluster of $MACHINE VMs with $DISK GB size disks."
+  gcloud container clusters create --disk-size $DISK --machine-type $MACHINE --num-nodes $NUM_NODES $CLUSTER 
+  gcloud container clusters get-credentials $CLUSTER
+}
+
+delete-cluster () {
+  gcloud container clusters delete $CLUSTER
+}
+
+
+config-set () {
+  echo "Setting PROJECT to '$PROJECT'"
+  nohup gcloud config set project $PROJECT > /dev/null
+  echo "Setting ZONE to '$ZONE'"
+  nohup gcloud config set compute/zone $ZONE > /dev/null
+  echo "Setting REGION to '$REGION'"
+  nohup gcloud config set compute/region $REGION > /dev/null
+}
+
+
+update () {
+  case $1 in
+    chronograf)
+      cd $GOPATH/src/github.com/influxdata/chronograf
+      git pull origin master
+      make docker
+      docker tag chronograf gcr.io/$PROJECT/chronograf:latest
+      gcloud docker push gcr.io/$PROJECT/chronograf:latest
+      kubectl delete pod --namespace tick -l app=chronograf
+      ;;
+    influxdb)
+      kubectl delete pods --namespace tick -l app=influxdb
+      ;;
+    telegraf)
+      kubectl delete configmap --namespace tick telegraf-config
+      kubectl create configmap --namespace tick telegraf-config --from-file $BP/telegraf/telegraf.conf 
+      kubectl delete pod --namespace tick -l app=telegraf
+      ;;
+    kapacitor)
+      kubectl delete pods --namespace tick -l app=kapacitor
+      ;;
+    *)
+      cat <<-HERE
+USAGE:
+  $ tick update {application}
+  
+OPTIONS:
+  - chronograf - pulls new code, builds images, pushes and restarts podss
+  - influxdb
+  - telegraf - updates configmap and restarts pods
+  - kapacitor
+HERE
+      exit 1
+  esac
+}
+
+build-chronograf () {
+  cd $GOPATH/src/github.com/influxdata/chronograf
+  git pull origin master
+  make docker
+  docker tag chronograf gcr.io/$PROJECT/chronograf:latest
+  gcloud docker push gcr.io/$PROJECT/chronograf:latest
+}
+
+usage () {
+  cat <<-HERE
+USAGE: $1
+  build-chronograf
+    - builds chronograf image from source and pushes it to gcloud docker'
+    $ tick build-chronograf
+  
+  create-cluster
+    - creates cluster to run this example
+    $ tick create-cluster
+  
+  create-disks
+    - creates all gcloud persistent disks for this application 
+    $ tick create-disks
+
+  create-tick
+    - creates all kube based resources for this application 
+    $ tick create-tick
+  
+  config-list
+    - lists current gcloud and kubectl context
+    $ tick config-list
+  
+  config-set
+    - sets config to variables at top of file
+    $ tick config-set
+  
+  delete-disks
+    - deletes the gcloud persistent disks for this application
+    $ tick delete-disks
+      
+  delete-cluster
+    - deletes the gcloud cluster for this application
+    $ tick delete-cluster
+      
+  delete-tick
+    - deletes the namespace and any other kube based resources for this application
+    $ tick delete
+    
+  spin-up
+    - spins up a new cluster w/ all resources and provisions the full tick stack
+    $ tick spin-up
+  
+  spin-down
+    - deletes the cluster and all associated resources
+    $ tick spin-down
+    
+  update {appliation}
+    - performs a rolling update on the pods for this application 
+    $ tick update {application}
+    - pass no args application list
+    $ tick update
+HERE
+}
+
+case $1 in
+  create-tick)
+    create-tick
+    ;;
+  create-disks)
+    create-disks
+    ;;
+  create-cluster)
+    create-cluster
+    ;;
+  delete-tick)
+    delete-tick
+    ;;
+  delete-disks)
+    delete-disks
+    ;;
+  delete-cluster)
+    delete-cluster
+    ;;
+  config-list)
+    config-list
+    ;;
+  config-set)
+    config-set
+    ;;
+  build-chronograf)
+    build-chronograf
+    ;;
+  update)
+    update $2 $3
+    ;;
+  spin-up)
+    config-set
+    create-cluster
+    create-disks
+    build-chronograf
+    create-tick
+    exit 0
+    ;;
+  spin-down)
+    delete-tick
+    delete-cluster
+    delete-disks
+    exit 0
+    ;;
+  *)
+    usage
+    exit 1
+esac
