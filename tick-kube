@@ -1,34 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-BP=$GOPATH/src/github.com/jackzampolin/tick-kube
-
-# Name of cluster 
-CLUSTER=sales-demo-cluster
-
-# Name of gcloud project
-PROJECT=influx-perf-testing
-
-# gcloud region
-REGION=us-west1
-
-# gcloud zone
-ZONE=us-west1-b
-
-# num GB of disk for nodes 
-DISK=100
-
-# gcloud instance types
-MACHINE=n1-standard-1
-
-# Number of nodes for kubernetes cluster
-NUM_NODES=3
-
-# InfluxDB Disk Size
-INFLUX_DISK=25GB
-
-# Chronograf and Kapacitor Disk Sizes
-OTHER_DISK=10GB
-
+source ./config.sh
 
 
 kube () {
@@ -101,6 +73,8 @@ config-set () {
   nohup gcloud config set compute/zone $ZONE > /dev/null
   echo "Setting REGION to '$REGION'"
   nohup gcloud config set compute/region $REGION > /dev/null
+  echo "Setting CLUSTER to '$CLUSTER'"
+  nohup gcloud container clusters get-credentials $CLUSTER > /dev/null
 }
 
 attach () {
@@ -183,7 +157,6 @@ HERE
 
 create-usage () {
   cat <<-HERE 
-USAGE:
   $0 create
   - create has the following subcommands
   
@@ -201,7 +174,6 @@ HERE
 
 delete-usage () {
   cat <<-HERE
-USAGE:
   $0 delete
   - delete has the following subcommands
   
@@ -219,22 +191,20 @@ HERE
 
 spin-usage () {
   cat <<-HERE
-USAGE:
   $0 spin
   - spin has the following subcommands
   
     - spins up a new cluster w/ all resources and provisions the full tick stack
-    $ $0 spin-up
+    $ $0 spin up
 
     - deletes the cluster and all associated resources
-    $ $0 spin-down
+    $ $0 spin down
     
 HERE
 }
 
 update-usage () {
   cat <<-HERE
-USAGEL
   $0 update {appliation}
     - deletes the pods for this application allowing the RC to spin up new ones
     $ $0 update {application}
@@ -247,6 +217,7 @@ HERE
 
 usage () {
   echo "USAGE: $0 $1"
+  echo ""
   attach-usage
   config-usage
   create-usage
@@ -270,6 +241,7 @@ create () {
       exit 0
       ;;
     *)
+      echo "USAGE: $0 $1"
       create-usage
       exit 1
       ;;
@@ -291,6 +263,7 @@ delete () {
       exit 0
       ;;
     *)
+      echo "USAGE: $0 $1"
       delete-usage
       exit 1
       ;;
@@ -308,7 +281,7 @@ config () {
       exit 0
       ;;
     *) 
-      echo "USAGE:"
+      echo "USAGE: $0 $1"
       config-usage
       exit 1
       ;;
@@ -330,6 +303,7 @@ spin () {
       exit 0
       ;;
     *)
+      echo "USAGE: $0 $1"
       spin-usage
       exit 1
       ;;

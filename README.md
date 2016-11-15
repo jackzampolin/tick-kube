@@ -23,7 +23,7 @@ $ go get -v github.com/jackzampolin/tick-kube
 $ git clone git@github.com:jackzampolin/tick-kube.git
 ```
 
-Personalize the variables in `/tick-kube`:
+Personalize the variables in `/config.sh`:
 
 ```bash
 # Defaults to go get download. Modify to be root of repo if using git clone
@@ -70,23 +70,20 @@ This tool offers a couple of different options:
 To create a new cluster running the full stack and return the IP where chronograf is running:
 
 ```bash
-$ ./tick-kube spin-up
+$ ./tick-kube spin up
 ```
 
 This command is a shortcut that runs following commands in order:
 
 ```bash
-# First set configuration for gcloud and kubectl to the settings in ./tick-kube
-$ ./tick-kube config-set
+# First set configuration for gcloud and kubectl to the settings in ./config.sh
+$ ./tick-kube config set
 # Next create a new kubernetes cluster with those configuration parameters
-$ ./tick-kube create-cluster
+$ ./tick-kube create cluster
 # Create disks for influxdb, chronograf, and kapacitor
-$ ./tick-kube create-disks
-# Build the chronograf docker container from source and push it to the Google Container Registry for your project
-# This script expects chronograf to be located at $GOPATH/src/github.com/influxdata/chronograf
-$ ./tick-kube build-chronograf
+$ ./tick-kube create disks
 # Create tick runs `kubectl apply -f $filename` on all manifests and creates associated configmaps
-$ ./tick-kube create-tick
+$ ./tick-kube create tick
 ```
 
 This command takes a few minutes. It will hang at the end waiting for a public IP for the `chronograf` service:
@@ -118,18 +115,15 @@ Kapacitor: http://kapacitor.tick:8086
 
 ##### Create the stack on an existing cluster
 
-Creating the stack on an existing cluster is easy as well. After setting the variables at the top of `/tick-kube` Run the following commands:
+Creating the stack on an existing cluster is easy as well. After setting the variables in `/config.sh` Run the following commands:
 
 ```bash
 # First set configuration for gcloud and kubectl to the settings in ./tick-kube
-$ ./tick-kube config-set
+$ ./tick-kube config set
 # Create disks for influxdb, chronograf, and kapacitor
-$ ./tick-kube create-disks
-# Build the chronograf docker container from source and push it to the Google Container Registry for your project
-# This script expects chronograf to be located at $GOPATH/src/github.com/influxdata/chronograf
-$ ./tick-kube build-chronograf
+$ ./tick-kube create disks
 # Create tick runs `kubectl apply -f $filename` on all manifests and creates associated configmaps
-$ ./tick-kube create-tick
+$ ./tick-kube create tick
 ```
 
 This command takes a few minutes. It will hang at the end waiting for a public IP for the `chronograf` service:
@@ -168,18 +162,16 @@ You can tear down either the full cluster or just the Kubernetes objects and per
 To destroy all resources created by this demo run:
 
 ```bash
-$ ./tick-kube spin-down
+$ ./tick-kube spin down
 ```
 
 This command takes a few minutes and will require user input at 2 different places. This command is a shortcut that runs following commands in order:
 
 ```bash
-# This deletes the tick namespace and removes tick from kubernetes
-$ ./tick-kube delete-tick
 # This deletes the cluster on google compute cloud and associated LBs
-$ ./tick-kube delete-cluster
+$ ./tick-kube delete cluster
 # This deletes the persistent disks created for InfluxDB, Kapacitor and Chronograf
-$ ./tick-kube delete-disk
+$ ./tick-kube delete disk
 ```
 
 ##### Namespace only teardown
@@ -188,12 +180,12 @@ To destroy the namespace and the associated persistent disks run the following:
 
 ```bash
 # This deletes the tick namespace and removes tick from kubernetes
-$ ./tick-kube delete-tick
+$ ./tick-kube delete tick
 # This deletes the persistent disks created for InfluxDB, Kapacitor and Chronograf
-$ ./tick-kube delete-disk
+$ ./tick-kube delete disk
 ```
 
-> NOTE: `./tick-kube delete-disk` may initially fail. This is because the disks are still mounted to the hosts. Wait a couple of minutes for them to get removed or go into the Google Cloud Console and delete them manually.
+> NOTE: `./tick-kube delete disk` may initially fail. This is because the disks are still mounted to the hosts. Wait a couple of minutes for them to get detached or go into the Google Cloud Console and delete them manually.
 
 ### Troubleshooting
 
