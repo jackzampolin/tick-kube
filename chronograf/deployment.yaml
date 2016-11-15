@@ -11,7 +11,7 @@ spec:
         app: chronograf
     spec:
       containers:
-      - image: gcr.io/influx-perf-testing/chronograf:latest
+      - image: quay.io/influxdb/chronograf:latest
         imagePullPolicy: Always
         name: chronograf
         ports:

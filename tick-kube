@@ -3,7 +3,7 @@
 BP=$GOPATH/src/github.com/jackzampolin/tick-kube
 
 # Name of cluster 
-CLUSTER=influx-test-cluster
+CLUSTER=sales-demo-cluster
 
 # Name of gcloud project
 PROJECT=influx-perf-testing
@@ -94,7 +94,6 @@ delete-cluster () {
   gcloud container clusters delete $CLUSTER
 }
 
-
 config-set () {
   echo "Setting PROJECT to '$PROJECT'"
   nohup gcloud config set project $PROJECT > /dev/null
@@ -105,13 +104,16 @@ config-set () {
 }
 
 attach () {
-  if [ -z $1 ]; 
-    then echo "namespace not specified"; 
+  if [ -z $1 ]; then 
+    echo "USAGE:"
+    attach-usage
+    exit 1
   else 
     echo "namespace: '$1'"; 
   fi
   if [ -z $2 ]; 
     then echo "app not specified"; 
+    exit 1
   else 
     echo "app: '$2'"; 
   fi
@@ -124,28 +126,27 @@ attach () {
 update () {
   case $1 in
     chronograf)
-      cd $GOPATH/src/github.com/influxdata/chronograf
-      git pull origin master
-      make docker
-      docker tag chronograf gcr.io/$PROJECT/chronograf:latest
-      gcloud docker push gcr.io/$PROJECT/chronograf:latest
-      kubectl delete pod --namespace tick -l app=chronograf
+      kubectl delete pods --namespace tick -l app=chronograf
+      exit 0
       ;;
     influxdb)
       kubectl delete pods --namespace tick -l app=influxdb
+      exit 0
       ;;
     telegraf)
       kubectl delete configmap --namespace tick telegraf-config
       kubectl create configmap --namespace tick telegraf-config --from-file $BP/telegraf/telegraf.conf 
       kubectl delete pod --namespace tick -l app=telegraf
+      exit 0
       ;;
     kapacitor)
       kubectl delete pods --namespace tick -l app=kapacitor
+      exit 0
       ;;
     *)
       cat <<-HERE
 USAGE:
-  $ tick-kube update {application}
+  $0 update {application}
   
 OPTIONS:
   - chronograf - pulls new code, builds images, pushes and restarts podss
@@ -157,87 +158,121 @@ HERE
   esac
 }
 
-build-chronograf () {
-  PROJECT=influx-perf-testing
-  cd $GOPATH/src/github.com/influxdata/chronograf
-  git pull origin master
-  make docker
-  docker tag chronograf gcr.io/$PROJECT/chronograf:latest
-  gcloud docker push gcr.io/$PROJECT/chronograf:latest
+attach-usage () {
+  cat <<-HERE
+  $0 attach
+    - attaches to a pod port for given a namespace and app tag
+    $ $0 attach tick influxdb
+  
+HERE
+}
+
+config-usage () {
+  cat <<-HERE
+  $0 config
+  - config has the following subcommands
+    
+    - lists current gcloud and kubectl context
+    $ $0 config list
+    
+    - sets config to variables at top of file
+    $ $0 config set
+    
+HERE
+}
+
+create-usage () {
+  cat <<-HERE 
+USAGE:
+  $0 create
+  - create has the following subcommands
+  
+    - creates cluster to run this example
+    $ $0 create cluster
+    
+    - creates all gcloud persistent disks for this application 
+    $ $0 create disks
+  
+    - creates all kube based resources for this application 
+    $ $0 create tick
+    
+HERE
+}
+
+delete-usage () {
+  cat <<-HERE
+USAGE:
+  $0 delete
+  - delete has the following subcommands
+  
+    - deletes the gcloud persistent disks for this application
+    $ $0 delete disks
+      
+    - deletes the gcloud cluster for this application
+    $ $0 delete cluster
+      
+    - deletes the namespace and any other kube based resources for this application
+    $ $0 delete tick
+    
+HERE
+}
+
+spin-usage () {
+  cat <<-HERE
+USAGE:
+  $0 spin
+  - spin has the following subcommands
+  
+    - spins up a new cluster w/ all resources and provisions the full tick stack
+    $ $0 spin-up
+
+    - deletes the cluster and all associated resources
+    $ $0 spin-down
+    
+HERE
+}
+
+update-usage () {
+  cat <<-HERE
+USAGEL
+  $0 update {appliation}
+    - deletes the pods for this application allowing the RC to spin up new ones
+    $ $0 update {application}
+    
+    - pass no args application list
+    $ $0 update
+    
+HERE
 }
 
 usage () {
-  cat <<-HERE
-USAGE: $1
-  attach
-    - attaches to a pod port for given a namespace and app tag
-    $ tick-kube attach tick influxdb
-    
-  build-chronograf
-    - builds chronograf image from source and pushes it to gcloud docker'
-    $ tick-kube build-chronograf
-  
-  create-cluster
-    - creates cluster to run this example
-    $ tick-kube create-cluster
-  
-  create-disks
-    - creates all gcloud persistent disks for this application 
-    $ tick-kube create-disks
-
-  create-tick
-    - creates all kube based resources for this application 
-    $ tick-kube create-tick-kube
-  
-  config-list
-    - lists current gcloud and kubectl context
-    $ tick-kube config-list
-  
-  config-set
-    - sets config to variables at top of file
-    $ tick-kube config-set
-  
-  delete-disks
-    - deletes the gcloud persistent disks for this application
-    $ tick-kube delete-disks
-      
-  delete-cluster
-    - deletes the gcloud cluster for this application
-    $ tick-kube delete-cluster
-      
-  delete-tick
-    - deletes the namespace and any other kube based resources for this application
-    $ tick-kube delete
-    
-  spin-up
-    - spins up a new cluster w/ all resources and provisions the full tick stack
-    $ tick-kube spin-up
-  
-  spin-down
-    - deletes the cluster and all associated resources
-    $ tick-kube spin-down
-    
-  update {appliation}
-    - performs a rolling update on the pods for this application 
-    $ tick-kube update {application}
-    - pass no args application list
-    $ tick-kube update
-HERE
+  echo "USAGE: $0 $1"
+  attach-usage
+  config-usage
+  create-usage
+  delete-usage
+  spin-usage
+  update-usage
 }
 
 create () {
   case $1 in
     tick)
       create-tick
+      exit 0
       ;;
     cluster)
       create-cluster
+      exit 0
       ;;
     disks)
       create-disks
+      exit 0
       ;;
     *)
-      usage
+      create-usage
+      exit 1
+      ;;
   esac
 }
 
@@ -245,15 +280,20 @@ delete () {
   case $1 in
     tick)
       delete-tick
+      exit 0
       ;;
     cluster)
       delete-cluster
+      exit 0
       ;;
     disks)
       delete-disks
+      exit 0
       ;;
     *)
-      usage
+      delete-usage
+      exit 1
+      ;;
   esac
 }
 
@@ -261,9 +301,37 @@ config () {
   case $1 in 
     list)
       config-list
+      exit 0
       ;;
     set)
       config-set
+      exit 0
+      ;;
+    *) 
+      echo "USAGE:"
+      config-usage
+      exit 1
+      ;;
+  esac
+}
+
+spin () {
+  case $1 in 
+    up)
+      config set
+      create cluster
+      create disks
+      create tick
+      exit 0
+      ;;
+    down)
+      delete cluster
+      delete disks
+      exit 0
+      ;;
+    *)
+      spin-usage
+      exit 1
       ;;
   esac
 }
@@ -271,37 +339,30 @@ config () {
 case $1 in
   attach)
     attach $2 $3
-    ;;
-  create)
-    create $2 $3
-    ;;
-  delete)
-    delete $2 $3
+    exit 0
     ;;
   config)
     config $2 $3
+    exit 0
     ;;
-  build-chronograf)
-    build-chronograf
+  create)
+    create $2 $3
+    exit 0
+    ;;
+  delete)
+    delete $2 $3
+    exit 0
+    ;;
+  spin)
+    spin $2 $3
+    exit 0
     ;;
   update)
     update $2 $3
-    ;;
-  spin-up)
-    config-set
-    create-cluster
-    create-disks
-    build-chronograf
-    create-tick
-    exit 0
-    ;;
-  spin-down)
-    delete-tick
-    delete-cluster
-    delete-disks
     exit 0
     ;;
   *)
-    usage
+    usage $2 $3 $4
     exit 1
-esac
+    ;;
+esac  
