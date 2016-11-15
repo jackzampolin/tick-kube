@@ -11,7 +11,7 @@ spec:
         app: kapacitor
     spec:
       containers:
-      - image: kapacitor:1.1.0-alpine
+      - image: kapacitor:1.1.0
         imagePullPolicy: Always
         name: kapacitor
         env:

@@ -104,6 +104,22 @@ config-set () {
   nohup gcloud config set compute/region $REGION > /dev/null
 }
 
+attach () {
+  if [ -z $1 ]; 
+    then echo "namespace not specified"; 
+  else 
+    echo "namespace: '$1'"; 
+  fi
+  if [ -z $2 ]; 
+    then echo "app not specified"; 
+  else 
+    echo "app: '$2'"; 
+  fi
+  kubectl port-forward \
+    --namespace $1 \
+    $(kubectl get pods --namespace $1 -l app=$2 --output=jsonpath="{.items[0].metadata.name}") \
+    $(kubectl get pods --namespace $1 -l app=$2 --output=jsonpath="{.items[0].spec.containers[0].ports[0].containerPort}")
+}
 
 update () {
   case $1 in
@@ -129,7 +145,7 @@ update () {
     *)
       cat <<-HERE
 USAGE:
-  $ tick update {application}
+  $ tick-kube update {application}
   
 OPTIONS:
   - chronograf - pulls new code, builds images, pushes and restarts podss
@@ -142,6 +158,7 @@ HERE
 }
 
 build-chronograf () {
+  PROJECT=influx-perf-testing
   cd $GOPATH/src/github.com/influxdata/chronograf
   git pull origin master
   make docker
@@ -152,82 +169,117 @@ build-chronograf () {
 usage () {
   cat <<-HERE
 USAGE: $1
+  attach
+    - attaches to a pod port for given a namespace and app tag
+    $ tick-kube attach tick influxdb
+    
   build-chronograf
     - builds chronograf image from source and pushes it to gcloud docker'
-    $ tick build-chronograf
+    $ tick-kube build-chronograf
   
   create-cluster
     - creates cluster to run this example
-    $ tick create-cluster
+    $ tick-kube create-cluster
   
   create-disks
     - creates all gcloud persistent disks for this application 
-    $ tick create-disks
+    $ tick-kube create-disks
 
   create-tick
     - creates all kube based resources for this application 
-    $ tick create-tick
+    $ tick-kube create-tick-kube
   
   config-list
     - lists current gcloud and kubectl context
-    $ tick config-list
+    $ tick-kube config-list
   
   config-set
     - sets config to variables at top of file
-    $ tick config-set
+    $ tick-kube config-set
   
   delete-disks
     - deletes the gcloud persistent disks for this application
-    $ tick delete-disks
+    $ tick-kube delete-disks
       
   delete-cluster
     - deletes the gcloud cluster for this application
-    $ tick delete-cluster
+    $ tick-kube delete-cluster
       
   delete-tick
     - deletes the namespace and any other kube based resources for this application
-    $ tick delete
+    $ tick-kube delete
     
   spin-up
     - spins up a new cluster w/ all resources and provisions the full tick stack
-    $ tick spin-up
+    $ tick-kube spin-up
   
   spin-down
     - deletes the cluster and all associated resources
-    $ tick spin-down
+    $ tick-kube spin-down
     
   update {appliation}
     - performs a rolling update on the pods for this application 
-    $ tick update {application}
+    $ tick-kube update {application}
     - pass no args application list
-    $ tick update
+    $ tick-kube update
 HERE
 }
 
+create () {
+  case $1 in
+    tick)
+      create-tick
+      ;;
+    cluster)
+      create-cluster
+      ;;
+    disks)
+      create-disks
+      ;;
+    *)
+      usage
+  esac
+}
+
+delete () {
+  case $1 in
+    tick)
+      delete-tick
+      ;;
+    cluster)
+      delete-cluster
+      ;;
+    disks)
+      delete-disks
+      ;;
+    *)
+      usage
+  esac
+}
+
+config () {
+  case $1 in 
+    list)
+      config-list
+      ;;
+    set)
+      config-set
+      ;;
+  esac
+}
+
 case $1 in
-  create-tick)
-    create-tick
+  attach)
+    attach $2 $3
     ;;
-  create-disks)
-    create-disks
+  create)
+    create $2 $3
     ;;
-  create-cluster)
-    create-cluster
+  delete)
+    delete $2 $3
     ;;
-  delete-tick)
-    delete-tick
-    ;;
-  delete-disks)
-    delete-disks
-    ;;
-  delete-cluster)
-    delete-cluster
-    ;;
-  config-list)
-    config-list
-    ;;
-  config-set)
-    config-set
+  config)
+    config $2 $3
     ;;
   build-chronograf)
     build-chronograf

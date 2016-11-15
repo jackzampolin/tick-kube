@@ -11,7 +11,7 @@ spec:
         app: influxdb
     spec:
       containers:
-      - image: influxdb:1.1.0-rc2-alpine
+      - image: influxdb:1.1.0-alpine
         imagePullPolicy: Always
         name: influxdb
         ports:

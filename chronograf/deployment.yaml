@@ -31,4 +31,3 @@ spec:
         gcePersistentDisk:
           pdName: chronograf
           fsType: ext4
-        
