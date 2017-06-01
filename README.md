@@ -1,3 +1,5 @@
+### No longer maintained: Please use [`tick-charts`](https://github.com/influxdata/tick-charts) for up to date version.
+
 # tick-kube
 
 A tool to deploy the InfluxData TICK stack to Google Container engine.
